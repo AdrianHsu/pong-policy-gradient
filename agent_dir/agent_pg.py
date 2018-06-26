@@ -57,7 +57,7 @@ class Agent_PG(Agent):
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma
-    self.hidden_dim = 1024
+    self.hidden_dim = 256
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
     self.memory = []
@@ -69,7 +69,7 @@ class Agent_PG(Agent):
     self.advantage =  tf.placeholder(
             tf.float32, [None, 1], name='advantage')
     
-    self.up_prob = self.build_net()
+    self.build_net()
     self.buildOptimizer()
 
     self.ckpts_path = self.args.save_dir + "pg.ckpt"
@@ -117,9 +117,7 @@ class Agent_PG(Agent):
       W_fc2 = self.init_W(shape=[self.hidden_dim, 1])
       b_fc2 = self.init_b(shape=[1])
       fc2 = tf.nn.bias_add(tf.matmul(h_fc1, W_fc2), b_fc2)
-      up_prob = tf.nn.sigmoid(fc2)
-
-    return up_prob
+      self.up_prob = tf.nn.sigmoid(fc2)
 
   def buildOptimizer(self):
 
@@ -196,6 +194,7 @@ class Agent_PG(Agent):
     # normalize episode rewards
     discounted -= np.mean(discounted)
     discounted /= np.std(discounted)
+
     return discounted
 
   def train(self):
@@ -205,26 +204,39 @@ class Agent_PG(Agent):
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
     avg_reward = []
     for episode in pbar:
+      self.init_game_setting()
       obs = self.env.reset()
       obs = prepro(obs)
-      self.init_game_setting()
+      action = self.env.action_space.sample()
+      obs_, _, _, _ = self.env.step(action)
+      obs_ = prepro(obs_)
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        action = self.make_action(obs, test=False)
+        # self.env.env.render()
+        state = obs_ - obs
+        obs = obs_
+
+        action = self.make_action(state, test=False)
+        print(action)
         obs_, reward, done, _ = self.env.step(action)
+        obs_ = prepro(obs_)
         episode_reward += reward
-        self.storeTransition(obs, actions_out[action], reward)
+        self.storeTransition(state, actions_out[action], reward)
 
         if self.step % self.args.saver_steps == 0 and episode != 0:
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
           print(color("\nStep: " + str(self.step) + ", Saver saved: " + ckpt_path, fg='white', bg='blue', style='bold'))
 
-        obs = prepro(obs_)
         if done:   
-          episode_len = s       
           break
 
+        # if reward == -1:
+        #   print("Round %d: %d time steps; lost..." % (episode, s))
+        # elif reward == +1:
+        #   print("Round %d: %d time steps; won!" % (episode, s))
+
+      episode_len = s
       # add summary for all episodes
       avg_reward.append(episode_reward) 
       if episode % self.args.batch_size == 0 and episode != 0:
@@ -256,15 +268,14 @@ class Agent_PG(Agent):
         action: int
             the predicted action from trained model
     """
-    ##################
-    # YOUR CODE HERE #
-    ##################
+
+
     prob = self.sess.run(self.up_prob, feed_dict={self.s: observation.reshape((1, -1))})
 
-    if prob > 0.5:
+    if prob[0] > 0.5:
       return actions_in['up']
     else:
       return actions_in['down']
 
-    # return self.env.get_random_action()
+    # return self.env.get_random_action()     
 
