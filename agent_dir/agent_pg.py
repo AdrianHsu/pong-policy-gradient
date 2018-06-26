@@ -226,16 +226,17 @@ class Agent_PG(Agent):
           break
 
       # add summary for all episodes
-      summary = tf.Summary(value=[tf.Summary.Value(tag="episode reward", simple_value=episode_reward)])
-      
-      self.writer.add_summary(summary, global_step=episode)
-      self.writer.flush()
       avg_reward.append(episode_reward) 
       if episode % self.args.batch_size == 0 and episode != 0:
         avg_rew = np.mean(avg_reward)
         avg_reward.clear()
         memory_len = len(self.memory)
         self.learn()
+
+        summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="mem length", simple_value=memory_len)])
+        self.writer.add_summary(summary, global_step=episode)
+        self.writer.flush()
+
         print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Memory Length: " + str(memory_len), fg='red', bg='white'))
 
       pbar.set_description("step: " + str(self.step) +  ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
