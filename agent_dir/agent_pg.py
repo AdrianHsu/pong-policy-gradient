@@ -18,7 +18,10 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 print(config)
 
-actions = {'up': 1, 'down': 0}
+# 1, 5 : up; 3, 4: down; 2, 6: stop
+actions_in = {'up': 2, 'down': 3}
+actions_out = {actions_in['up']: 1, actions_in['down']: 0}
+
 Transition = namedtuple('Transition',
                         ('state', 'action', 'reward'))
 
@@ -125,7 +128,7 @@ class Agent_PG(Agent):
 
 
   def init_W(self, shape, name='weights', 
-    w_initializer=tf.truncated_normal_initializer(0, 1e-2)):
+    w_initializer=tf.truncated_normal_initializer(0, 1e-1)):
 
     return tf.get_variable(
       name=name,
@@ -133,7 +136,7 @@ class Agent_PG(Agent):
       initializer=w_initializer)
 
   def init_b(self, shape, name='biases', 
-    b_initializer = tf.constant_initializer(1e-2)):
+    b_initializer = tf.constant_initializer(1e-1)):
 
     return tf.get_variable(
       name=name,
@@ -180,6 +183,7 @@ class Agent_PG(Agent):
   def discount_and_norm_rewards(self):
     reward_batch = [mem.reward for mem in self.memory]
     discounted = np.zeros_like(reward_batch)
+    # discount episode rewards
     for t in range(len(reward_batch)):
       discounted_sum = 0
       discount = 1
@@ -189,6 +193,7 @@ class Agent_PG(Agent):
         if reward_batch[k] != 0:
           break
       discounted[t] = discounted_sum
+    # normalize episode rewards
     discounted -= np.mean(discounted)
     discounted /= np.std(discounted)
     return discounted
@@ -198,8 +203,6 @@ class Agent_PG(Agent):
     Implement your training algorithm here
     """
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
-
-    # 1, 5 : up; 3, 4: down; 2, 6: stop
     avg_reward = []
     for episode in pbar:
       obs = self.env.reset()
@@ -211,7 +214,7 @@ class Agent_PG(Agent):
         action = self.make_action(obs, test=False)
         obs_, reward, done, _ = self.env.step(action)
         episode_reward += reward
-        self.storeTransition(obs, action, reward)
+        self.storeTransition(obs, actions_out[action], reward)
 
         if self.step % self.args.saver_steps == 0 and episode != 0:
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
@@ -223,9 +226,10 @@ class Agent_PG(Agent):
           break
 
       # add summary for all episodes
-      summary = tf.Summary(value=[tf.Summary.Value(tag="rewards", simple_value=episode_reward)])
-      self.writer.add_summary(summary, episode)
-
+      summary = tf.Summary(value=[tf.Summary.Value(tag="episode reward", simple_value=episode_reward)])
+      
+      self.writer.add_summary(summary, global_step=episode)
+      self.writer.flush()
       avg_reward.append(episode_reward) 
       if episode % self.args.batch_size == 0 and episode != 0:
         avg_rew = np.mean(avg_reward)
@@ -257,9 +261,9 @@ class Agent_PG(Agent):
     prob = self.sess.run(self.up_prob, feed_dict={self.s: observation.reshape((1, -1))})
 
     if prob > 0.5:
-      return actions['up']
+      return actions_in['up']
     else:
-      return actions['down']
+      return actions_in['down']
 
     # return self.env.get_random_action()
 
