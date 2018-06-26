@@ -230,14 +230,14 @@ class Agent_PG(Agent):
       if episode % self.args.batch_size == 0 and episode != 0:
         avg_rew = np.mean(avg_reward)
         avg_reward.clear()
-        memory_len = len(self.memory)
+        avg_memory_len = float(len(self.memory)) / float(self.args.batch_size)
         self.learn()
 
-        summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="mem length", simple_value=memory_len)])
+        summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()
 
-        print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Memory Length: " + str(memory_len), fg='red', bg='white'))
+        print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + str(avg_memory_len), fg='red', bg='white'))
 
       pbar.set_description("step: " + str(self.step) +  ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
