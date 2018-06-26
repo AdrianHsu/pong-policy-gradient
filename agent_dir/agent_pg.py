@@ -134,7 +134,7 @@ class Agent_PG(Agent):
       initializer=w_initializer)
 
   def init_b(self, shape, name='biases', 
-    b_initializer=tf.zeros_initializer()):
+    b_initializer=tf.contrib.layers.xavier_initializer()):
 
     return tf.get_variable(
       name=name,
@@ -202,6 +202,7 @@ class Agent_PG(Agent):
     """
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
     avg_reward = []
+    total_mem_len = 0.0
     for episode in pbar:
       self.init_game_setting()
       obs = self.env.reset()
@@ -231,14 +232,16 @@ class Agent_PG(Agent):
 
       episode_len = s
       # add summary for all episodes
-      avg_reward.append(episode_reward) 
+      total_mem_len += len(self.memory)
+      avg_reward.append(episode_reward)
+      self.learn()
+      self.memory.clear()
+
       if episode % self.args.batch_size == 0 and episode != 0:
         avg_rew = np.mean(avg_reward)
         avg_reward.clear()
-        avg_memory_len = float(len(self.memory)) / float(self.args.batch_size)
-        self.learn()
-        self.memory.clear()
-        
+        avg_memory_len = float(total_mem_len) / float(self.args.batch_size)
+        total_mem_len = 0
         summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()

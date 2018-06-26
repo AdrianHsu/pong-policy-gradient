@@ -17,6 +17,6 @@ def add_arguments(parser):
     parser.add_argument('--log_dir', type=str, default='logs/')
     parser.add_argument('--load_saver', type=int, default=0)
     parser.add_argument('--saver_steps', type=int, default=20000)
-    parser.add_argument('--observe_steps', type=int, default=50000)
+    parser.add_argument('--observe_steps', type=int, default=100000)
 
     return parser
