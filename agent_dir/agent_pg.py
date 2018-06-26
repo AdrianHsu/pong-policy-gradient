@@ -212,7 +212,7 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        self.env.env.render()
+        #self.env.env.render()
         state = obs_ - obs
         obs = obs_
 
@@ -262,7 +262,7 @@ class Agent_PG(Agent):
         action: int
             the predicted action from trained model
     """
-    if self.step < 10000: # OBSERVE STAGE
+    if self.step < self.args.observe_steps: # OBSERVE STAGE
       if random.random() > 0.5:
         return actions_in['up']
       else:
