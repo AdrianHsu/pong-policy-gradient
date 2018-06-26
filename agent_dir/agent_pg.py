@@ -42,7 +42,7 @@ def prepro(o,image_size=[80,80]):
   y = 0.2126 * o[:, :, 0] + 0.7152 * o[:, :, 1] + 0.0722 * o[:, :, 2]
   y = y.astype(np.uint8)
   resized = scipy.misc.imresize(y, image_size)
-  return np.expand_dims(resized.astype(np.float32),axis=2)
+  return np.expand_dims(resized.astype(np.float32), axis=2)
 
 
 class Agent_PG(Agent):
@@ -126,7 +126,7 @@ class Agent_PG(Agent):
 
 
   def init_W(self, shape, name='weights', 
-    w_initializer=tf.truncated_normal_initializer(0, 1e-1)):
+    w_initializer=tf.contrib.layers.xavier_initializer()):
 
     return tf.get_variable(
       name=name,
@@ -134,7 +134,7 @@ class Agent_PG(Agent):
       initializer=w_initializer)
 
   def init_b(self, shape, name='biases', 
-    b_initializer = tf.constant_initializer(1e-1)):
+    b_initializer=tf.zeros_initializer()):
 
     return tf.get_variable(
       name=name,
@@ -176,7 +176,6 @@ class Agent_PG(Agent):
         self.act: action_batch,
         self.advantage: reward_batch
       })
-    self.memory.clear()
 
   def discount_and_norm_rewards(self):
     reward_batch = [mem.reward for mem in self.memory]
@@ -213,12 +212,11 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        # self.env.env.render()
+        self.env.env.render()
         state = obs_ - obs
         obs = obs_
 
         action = self.make_action(state, test=False)
-        print(action)
         obs_, reward, done, _ = self.env.step(action)
         obs_ = prepro(obs_)
         episode_reward += reward
@@ -231,11 +229,6 @@ class Agent_PG(Agent):
         if done:   
           break
 
-        # if reward == -1:
-        #   print("Round %d: %d time steps; lost..." % (episode, s))
-        # elif reward == +1:
-        #   print("Round %d: %d time steps; won!" % (episode, s))
-
       episode_len = s
       # add summary for all episodes
       avg_reward.append(episode_reward) 
@@ -244,12 +237,13 @@ class Agent_PG(Agent):
         avg_reward.clear()
         avg_memory_len = float(len(self.memory)) / float(self.args.batch_size)
         self.learn()
-
+        self.memory.clear()
+        
         summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()
 
-        print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + str(avg_memory_len), fg='red', bg='white'))
+        print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + "{:.2f}".format(avg_memory_len), fg='red', bg='white'))
 
       pbar.set_description("step: " + str(self.step) +  ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
@@ -268,11 +262,15 @@ class Agent_PG(Agent):
         action: int
             the predicted action from trained model
     """
-
+    if self.step < 10000: # OBSERVE STAGE
+      if random.random() > 0.5:
+        return actions_in['up']
+      else:
+        return actions_in['down']
 
     prob = self.sess.run(self.up_prob, feed_dict={self.s: observation.reshape((1, -1))})
 
-    if prob[0] > 0.5:
+    if prob[0] > 0.5: # TRAIN STAGE
       return actions_in['up']
     else:
       return actions_in['down']
