@@ -58,6 +58,7 @@ class Agent_PG(Agent):
     self.lr = args.learning_rate
     self.gamma = args.gamma
     self.hidden_dim = 256
+    self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
     self.memory = []
@@ -183,7 +184,7 @@ class Agent_PG(Agent):
     # discount episode rewards
     for t in range(len(reward_batch)):
       discounted_sum = 0
-      discount = 1
+      discount = 1.0
       for k in range(t, len(reward_batch)):
         discounted_sum += reward_batch[k] * discount
         discount *= self.gamma
@@ -200,6 +201,8 @@ class Agent_PG(Agent):
     """
     Implement your training algorithm here
     """
+    file_loss = open(self.output_logs, "a")
+    file_loss.write("episode,step,reward,length\n")
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
     avg_reward = []
     total_mem_len = 0.0
@@ -245,8 +248,9 @@ class Agent_PG(Agent):
         summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()
-
-        print(color("\n[Train] Avg Reward (30 rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + "{:.2f}".format(avg_memory_len), fg='red', bg='white'))
+        file_loss.write(str(episode) + "," + str(self.step) + "," + "{:.2f}".format(avg_rew) + "," + "{:.2f}".format(avg_memory_len) + "\n")
+        file_loss.flush()
+        #print(color("\n[Train] Avg Reward (" + str(self.args.batch_size) + " rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + "{:.2f}".format(avg_memory_len), fg='red', bg='white'))
 
       pbar.set_description("step: " + str(self.step) +  ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
