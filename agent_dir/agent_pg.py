@@ -57,7 +57,7 @@ class Agent_PG(Agent):
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma
-    self.hidden_dim = 256
+    self.hidden_dim = 200
     self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
@@ -126,21 +126,21 @@ class Agent_PG(Agent):
     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
 
-  def init_W(self, shape, name='weights', 
-    w_initializer=tf.contrib.layers.xavier_initializer()):
+  def init_W(self, shape, name='weights'):
+    #,w_initializer=tf.contrib.layers.xavier_initializer()):
 
     return tf.get_variable(
       name=name,
-      shape=shape, 
-      initializer=w_initializer)
+      shape=shape)
+      #,initializer=w_initializer)
 
-  def init_b(self, shape, name='biases', 
-    b_initializer=tf.contrib.layers.xavier_initializer()):
+  def init_b(self, shape, name='biases'):
+    #,b_initializer=tf.contrib.layers.xavier_initializer()):
 
     return tf.get_variable(
       name=name,
-      shape=shape,
-      initializer=b_initializer)
+      shape=shape)
+      #,initializer=b_initializer)
 
 
   def init_game_setting(self):
