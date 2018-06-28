@@ -229,9 +229,8 @@ class Agent_PG(Agent):
 
       for s in range(self.args.max_num_steps):
         self.env.env.render()
-        action = self.make_action(obs, test=False)
+        state, action = self.make_action(obs, test=False)
         obs, reward, done, info = self.env.step(action)
-        state = prepro(obs) - self.obs_list[-1]
         self.storeTransition(state, action, reward)
         episode_reward += reward
         self.step = self.sess.run(self.add_global)
@@ -303,10 +302,15 @@ class Agent_PG(Agent):
 
     prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
 
-    if prob[0] > np.random.uniform(): # similar to epsilon-greedy
-      return actions_in['up']
-    else:
-      return actions_in['down']
-
+    if test == True:
+      if prob[0] > np.random.uniform(): # similar to epsilon-greedy
+        return actions_in['up']
+      else:
+        return actions_in['down']
+    else: 
+      if prob[0] > np.random.uniform(): # similar to epsilon-greedy
+        return state, actions_in['up']
+      else:
+        return state, actions_in['down']      
     # return self.env.get_random_action()     
 
