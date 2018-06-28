@@ -57,12 +57,12 @@ class Agent_PG(Agent):
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma
-    self.hidden_dim = 100
+    self.hidden_dim = 200
     self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
     self.memory = [] # training
-    self.obs_list = [] # testing
+    self.obs_list = []
     self.global_step = tf.Variable(0, trainable=False)
     self.add_global = self.global_step.assign_add(1)
     self.step = 0
@@ -219,7 +219,7 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        self.env.env.render()
+        #self.env.env.render()
         action = self.make_action(obs, test=False)
         obs, reward, done, info = self.env.step(action)
         state = prepro(obs) - self.obs_list[-1]
