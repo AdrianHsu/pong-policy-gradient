@@ -115,18 +115,26 @@ class Agent_PG(Agent):
       b_fc1 = self.init_b(shape=[self.hidden_dim])
       fc1 = tf.nn.bias_add(tf.matmul(self.s, W_fc1), b_fc1)
       h_fc1 = tf.nn.relu(fc1)
+    #with tf.variable_scope('fc2'):
+    #  W_fc2 = self.init_W(shape=[self.hidden_dim, 1])
+    #  b_fc2 = self.init_b(shape=[1])
+    #  fc2 = tf.nn.bias_add(tf.matmul(h_fc1, W_fc2), b_fc2)
+    #  h_fc2 = tf.nn.sigmoid(fc2)
     with tf.variable_scope('fc2'):
-      W_fc2 = self.init_W(shape=[self.hidden_dim, 1])
-      b_fc2 = self.init_b(shape=[1])
+      W_fc2 = self.init_W(shape=[self.hidden_dim, self.hidden_dim])
+      b_fc2 = self.init_b(shape=[self.hidden_dim])
       fc2 = tf.nn.bias_add(tf.matmul(h_fc1, W_fc2), b_fc2)
-      self.up_prob = tf.nn.sigmoid(fc2)
+      h_fc2 = tf.nn.relu(fc2)
+    with tf.variable_scope('fc3'):
+      W_fc3 = self.init_W(shape=[self.hidden_dim, 1])
+      b_fc3 = self.init_b(shape=[1])
+      fc3 = tf.nn.bias_add(tf.matmul(h_fc2, W_fc3), b_fc3)
+      self.up_prob = tf.nn.sigmoid(fc3)
 
   def buildOptimizer(self):
 
     self.loss = tf.losses.log_loss(labels=self.act, predictions=self.up_prob, weights=self.advantage)
     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(-1 * self.loss)
-    #self.train_op = tf.train.GradientDescentOptimizer(self.lr).minimize(self.loss)
-
 
   def init_W(self, shape, name='weights'):
     #,w_initializer=tf.contrib.layers.xavier_initializer()):
@@ -161,9 +169,6 @@ class Agent_PG(Agent):
     tr = Transition(s, action, reward)
     self.memory.append(tr)
     # print(len(self.memory))
-
-  def storeObservation(self, obs):
-    self.obs_list.append(obs)
 
   def learn(self):
 
