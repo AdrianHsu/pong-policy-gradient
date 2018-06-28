@@ -23,7 +23,7 @@ actions_in = {'up': 2, 'down': 3}
 actions_out = {actions_in['up']: 1, actions_in['down']: 0}
 
 Transition = namedtuple('Transition',
-                        ('state', 'action', 'reward'))
+                        ('state', 'obs', 'action', 'reward'))
 
 
 def prepro(o,image_size=[80,80]):
@@ -57,7 +57,7 @@ class Agent_PG(Agent):
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma
-    self.hidden_dim = 200
+    self.hidden_dim = 100
     self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
@@ -156,8 +156,8 @@ class Agent_PG(Agent):
     ##################
     pass
 
-  def storeTransition(self, s, action, reward):
-    tr = Transition(s, action, reward)
+  def storeTransition(self, s, obs, action, reward):
+    tr = Transition(s, obs, action, reward)
     self.memory.append(tr)
     self.step = self.sess.run(self.add_global)
     # print(len(self.memory))
@@ -205,30 +205,26 @@ class Agent_PG(Agent):
     Implement your training algorithm here
     """
     file_loss = open(self.output_logs, "a")
-    file_loss.write("episode,step,reward,length\n")
+    file_loss.write("episode,step,reward,length,loss\n")
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
     avg_reward = []
     total_mem_len = 0.0
     loss = 0.0
     for episode in pbar:
-      self.init_game_setting()
       obs = self.env.reset()
-      obs = prepro(obs)
-      action = self.env.action_space.sample()
-      obs_, _, _, _ = self.env.step(action)
-      obs_ = prepro(obs_)
+      self.init_game_setting()
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
         #self.env.env.render()
-        state = obs_ - obs
-        obs = obs_
-
-        action = self.make_action(state, test=False)
+        action = self.make_action(obs, test=False)
         obs_, reward, done, _ = self.env.step(action)
+        ## only for train
         obs_ = prepro(obs_)
+        state = obs_ - self.memory[-1].obs
+        self.storeTransition(state, obs_, actions_out[action], reward)
+        ## end: only for train
         episode_reward += reward
-        self.storeTransition(state, actions_out[action], reward)
 
         if self.step % self.args.saver_steps == 0 and episode != 0:
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
@@ -253,16 +249,16 @@ class Agent_PG(Agent):
         summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len), tf.Summary.Value(tag="loss", simple_value=loss)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()
-        file_loss.write(str(episode) + "," + str(self.step) + "," + "{:.2f}".format(avg_rew) + "," + "{:.2f}".format(avg_memory_len) + "," + "{:.2f}".format(loss) + "\n")
+        file_loss.write(str(episode) + "," + str(self.step) + "," + "{:.2f}".format(avg_rew) + "," + "{:.2f}".format(avg_memory_len) + "," + "{:.6f}".format(loss) + "\n")
         file_loss.flush()
         #print(color("\n[Train] Avg Reward (" + str(self.args.batch_size) + " rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + "{:.2f}".format(avg_memory_len), fg='red', bg='white'))
 
-      pbar.set_description("step: " + str(self.step) +  ", loss: " + str(loss) + ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
+      pbar.set_description("step: " + str(self.step) +  ", loss: " + "{:.6f}".format(loss) + ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
 
 
 
-  def make_action(self, observation, test=True):
+  def make_action(self, obs, test=True):
     """
     Return predicted action of your agent
 
@@ -279,9 +275,24 @@ class Agent_PG(Agent):
     #    return actions_in['up']
     #  else:
     #    return actions_in['down']
-    prob = self.sess.run(self.up_prob, feed_dict={self.s: observation.reshape((1, -1))})
+    
+    
+    obs = prepro(obs)
+    if len(self.memory) == 0:
+      if random.random() > 0.5: 
+        init_action = actions_in['up']
+      else:
+        init_action = actions_in['down']
+      obs_, reward, done, info = self.env.step(init_action)
+      obs_ = prepro(obs_)
+      state = obs_ - obs
+      self.storeTransition(state, obs_, actions_out[init_action], reward)
+    else:
+      state = obs - self.memory[-1].obs
+    
+    prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
 
-    if prob[0] > 0.5: # TRAIN STAGE
+    if prob[0] > 0.5: 
       return actions_in['up']
     else:
       return actions_in['down']
