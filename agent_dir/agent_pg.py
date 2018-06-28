@@ -50,6 +50,7 @@ class Agent_PG(Agent):
     """
     Initialize every things you need here.
     For example: building your model
+    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
     """
 
     super(Agent_PG,self).__init__(env)
@@ -57,7 +58,7 @@ class Agent_PG(Agent):
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma
-    self.hidden_dim = 200
+    self.hidden_dim = args.hidden_dim
     self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
@@ -119,7 +120,8 @@ class Agent_PG(Agent):
       W_fc2 = self.init_W(shape=[self.hidden_dim, 1])
       b_fc2 = self.init_b(shape=[1])
       fc2 = tf.nn.bias_add(tf.matmul(h_fc1, W_fc2), b_fc2)
-      h_fc2 = tf.nn.sigmoid(fc2)
+      self.up_prob = tf.nn.sigmoid(fc2)
+
     #with tf.variable_scope('fc2'):
     #  W_fc2 = self.init_W(shape=[self.hidden_dim, self.hidden_dim])
     #  b_fc2 = self.init_b(shape=[self.hidden_dim])
@@ -195,10 +197,11 @@ class Agent_PG(Agent):
     # discount episode rewards
     for t in range(len(reward_batch)):
       discounted_sum = 0
-      discount = 1.0
+      discount = 1
       for k in range(t, len(reward_batch)):
         discounted_sum += reward_batch[k] * discount
         discount *= self.gamma
+
         if reward_batch[k] != 0:
           break
       discounted[t] = discounted_sum
@@ -235,10 +238,10 @@ class Agent_PG(Agent):
         if self.step % self.args.saver_steps == 0 and episode != 0:
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
           print(color("\nStep: " + str(self.step) + ", Saver saved: " + ckpt_path, fg='white', bg='blue', style='bold'))
-
         if done:
           break
 
+      self.obs_list.clear()
       episode_len = s
       # add summary for all episodes
       total_mem_len += len(self.memory)
@@ -283,7 +286,7 @@ class Agent_PG(Agent):
     #    return actions_in['down']
     obs = prepro(obs)
     if len(self.obs_list) == 0:
-      if random.random() > 0.5:
+      if np.random.uniform() > 0.5:
         init_action = actions_in['up']
       else:
         init_action = actions_in['down']
@@ -299,7 +302,7 @@ class Agent_PG(Agent):
 
     prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
 
-    if prob[0] > 0.5: 
+    if prob[0] > np.random.uniform(): # similar to epsilon-greedy
       return actions_in['up']
     else:
       return actions_in['down']
