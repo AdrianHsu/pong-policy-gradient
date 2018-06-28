@@ -55,6 +55,7 @@ class Agent_PG(Agent):
 
     super(Agent_PG,self).__init__(env)
     self.args = args
+    env.seed(11037)
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
     self.gamma = args.gamma

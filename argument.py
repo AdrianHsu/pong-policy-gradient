@@ -19,6 +19,6 @@ def add_arguments(parser):
     parser.add_argument('--saver_steps', type=int, default=100000)
     parser.add_argument('--observe_steps', type=int, default=100000)
     parser.add_argument('--output_logs', type=str, default='loss.csv')
-    parser.add_argument('--hidden_dim', type=int, default=256)
+    parser.add_argument('--hidden_dim', type=int, default=250)
 
     return parser
