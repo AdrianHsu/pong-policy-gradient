@@ -54,6 +54,7 @@ class Agent_PG(Agent):
     """
 
     super(Agent_PG,self).__init__(env)
+    env.seed(11037)
     self.args = args
     self.batch_size = args.batch_size
     self.lr = args.learning_rate
@@ -227,7 +228,7 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        #self.env.env.render()
+        self.env.env.render()
         action = self.make_action(obs, test=False)
         obs, reward, done, info = self.env.step(action)
         state = prepro(obs) - self.obs_list[-1]
