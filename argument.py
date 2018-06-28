@@ -8,7 +8,7 @@ def add_arguments(parser):
         parser.add_argument('--learning_rate', type=float, default=0.01, help='learning rate for training')
     '''
     parser.add_argument('--batch_size', type=int, default=1) # 30
-    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--learning_rate', type=float, default=0.0005)
     parser.add_argument('--num_episodes', type=int, default=30000)
     parser.add_argument('--episode_start', type=int, default=0)
     parser.add_argument('--max_num_steps', type=int, default=100000)
@@ -19,6 +19,6 @@ def add_arguments(parser):
     parser.add_argument('--saver_steps', type=int, default=100000)
     parser.add_argument('--observe_steps', type=int, default=100000)
     parser.add_argument('--output_logs', type=str, default='loss.csv')
-    parser.add_argument('--hidden_dim', type=int, default=250)
+    parser.add_argument('--hidden_dim', type=int, default=200)
 
     return parser
