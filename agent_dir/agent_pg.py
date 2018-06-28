@@ -44,7 +44,6 @@ def prepro(o,image_size=[80,80]):
   resized = scipy.misc.imresize(y, image_size)
   return np.expand_dims(resized.astype(np.float32), axis=2)
 
-
 class Agent_PG(Agent):
   def __init__(self, env, args):
     """
@@ -170,7 +169,7 @@ class Agent_PG(Agent):
     pass
 
   def storeTransition(self, s, action, reward):
-    tr = Transition(s, action, reward)
+    tr = Transition(s, actions_out[action], reward)
     self.memory.append(tr)
     # print(len(self.memory))
 
