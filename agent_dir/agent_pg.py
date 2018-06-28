@@ -23,7 +23,7 @@ actions_in = {'up': 2, 'down': 3}
 actions_out = {actions_in['up']: 1, actions_in['down']: 0}
 
 Transition = namedtuple('Transition',
-                        ('state', 'obs', 'action', 'reward'))
+                        ('state', 'action', 'reward'))
 
 
 def prepro(o,image_size=[80,80]):
@@ -61,7 +61,8 @@ class Agent_PG(Agent):
     self.output_logs = args.output_logs # 'loss.csv'
     self.action_dim = env.action_space.n # 6
     self.state_dim = env.observation_space.shape[0] # 210
-    self.memory = []
+    self.memory = [] # training
+    self.obs_list = [] # testing
     self.global_step = tf.Variable(0, trainable=False)
     self.add_global = self.global_step.assign_add(1)
     self.step = 0
@@ -123,7 +124,7 @@ class Agent_PG(Agent):
   def buildOptimizer(self):
 
     self.loss = tf.losses.log_loss(labels=self.act, predictions=self.up_prob, weights=self.advantage)
-    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(-1 * self.loss)
     #self.train_op = tf.train.GradientDescentOptimizer(self.lr).minimize(self.loss)
 
 
@@ -156,11 +157,13 @@ class Agent_PG(Agent):
     ##################
     pass
 
-  def storeTransition(self, s, obs, action, reward):
-    tr = Transition(s, obs, action, reward)
+  def storeTransition(self, s, action, reward):
+    tr = Transition(s, action, reward)
     self.memory.append(tr)
-    self.step = self.sess.run(self.add_global)
     # print(len(self.memory))
+
+  def storeObservation(self, obs):
+    self.obs_list.append(obs)
 
   def learn(self):
 
@@ -216,15 +219,13 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        #self.env.env.render()
+        self.env.env.render()
         action = self.make_action(obs, test=False)
-        obs_, reward, done, _ = self.env.step(action)
-        ## only for train
-        obs_ = prepro(obs_)
-        state = obs_ - self.memory[-1].obs
-        self.storeTransition(state, obs_, actions_out[action], reward)
-        ## end: only for train
+        obs, reward, done, info = self.env.step(action)
+        state = prepro(obs) - self.obs_list[-1]
+        self.storeTransition(state, action, reward)
         episode_reward += reward
+        self.step = self.sess.run(self.add_global)
 
         if self.step % self.args.saver_steps == 0 and episode != 0:
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
@@ -275,21 +276,22 @@ class Agent_PG(Agent):
     #    return actions_in['up']
     #  else:
     #    return actions_in['down']
-    
-    
     obs = prepro(obs)
-    if len(self.memory) == 0:
-      if random.random() > 0.5: 
+    if len(self.obs_list) == 0:
+      if random.random() > 0.5:
         init_action = actions_in['up']
       else:
         init_action = actions_in['down']
-      obs_, reward, done, info = self.env.step(init_action)
-      obs_ = prepro(obs_)
-      state = obs_ - obs
-      self.storeTransition(state, obs_, actions_out[init_action], reward)
+      obs_next, reward, done, info = self.env.step(init_action)
+      obs_next = prepro(obs_next)
+      state = obs_next - obs
+      
+      self.obs_list.append(obs)
+      self.obs_list.append(obs_next)
     else:
-      state = obs - self.memory[-1].obs
-    
+      state = obs - self.obs_list[-1]
+      self.obs_list.append(obs)
+
     prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
 
     if prob[0] > 0.5: 

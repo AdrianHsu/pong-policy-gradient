@@ -34,10 +34,10 @@ def test(agent, env, total_episodes=30):
         episode_reward = 0.0
         #playing one game
         while(not done):
+            env.env.render()
             action = agent.make_action(state, test=True)
             state, reward, done, info = env.step(action)
             episode_reward += reward
-            # env.env.render()
         print(i, episode_reward)
         rewards.append(episode_reward)
     print('Run %d episodes'%(total_episodes))
