@@ -124,6 +124,7 @@ class Agent_PG(Agent):
 
     self.loss = tf.losses.log_loss(labels=self.act, predictions=self.up_prob, weights=self.advantage)
     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+    #self.train_op = tf.train.GradientDescentOptimizer(self.lr).minimize(self.loss)
 
 
   def init_W(self, shape, name='weights'):
@@ -172,11 +173,13 @@ class Agent_PG(Agent):
     # reward_batch = [mem.reward for mem in self.memory]
     reward_batch = np.array(reward_batch).reshape(-1, 1)
 
-    self.sess.run(self.train_op, feed_dict={
+    _, loss = self.sess.run([self.train_op, self.loss], feed_dict={
         self.s: state_batch,
         self.act: action_batch,
         self.advantage: reward_batch
       })
+
+    return loss
 
   def discount_and_norm_rewards(self):
     reward_batch = [mem.reward for mem in self.memory]
@@ -206,6 +209,7 @@ class Agent_PG(Agent):
     pbar = tqdm(range(self.args.episode_start, self.args.num_episodes))
     avg_reward = []
     total_mem_len = 0.0
+    loss = 0.0
     for episode in pbar:
       self.init_game_setting()
       obs = self.env.reset()
@@ -230,29 +234,30 @@ class Agent_PG(Agent):
           ckpt_path = self.saver.save(self.sess, self.ckpts_path, global_step = self.step)
           print(color("\nStep: " + str(self.step) + ", Saver saved: " + ckpt_path, fg='white', bg='blue', style='bold'))
 
-        if done:   
+        if done:
           break
 
       episode_len = s
       # add summary for all episodes
       total_mem_len += len(self.memory)
       avg_reward.append(episode_reward)
-      self.learn()
-      self.memory.clear()
 
       if episode % self.args.batch_size == 0 and episode != 0:
+        loss = self.learn()
+        self.memory.clear()
+        
         avg_rew = np.mean(avg_reward)
         avg_reward.clear()
         avg_memory_len = float(total_mem_len) / float(self.args.batch_size)
         total_mem_len = 0
-        summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len)])
+        summary = tf.Summary(value=[tf.Summary.Value(tag="avg reward", simple_value=avg_rew), tf.Summary.Value(tag="avg mem length", simple_value=avg_memory_len), tf.Summary.Value(tag="loss", simple_value=loss)])
         self.writer.add_summary(summary, global_step=episode)
         self.writer.flush()
-        file_loss.write(str(episode) + "," + str(self.step) + "," + "{:.2f}".format(avg_rew) + "," + "{:.2f}".format(avg_memory_len) + "\n")
+        file_loss.write(str(episode) + "," + str(self.step) + "," + "{:.2f}".format(avg_rew) + "," + "{:.2f}".format(avg_memory_len) + "," + "{:.2f}".format(loss) + "\n")
         file_loss.flush()
         #print(color("\n[Train] Avg Reward (" + str(self.args.batch_size) + " rounds): " + "{:.2f}".format(avg_rew) + ", Avg Memory Length: " + "{:.2f}".format(avg_memory_len), fg='red', bg='white'))
 
-      pbar.set_description("step: " + str(self.step) +  ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
+      pbar.set_description("step: " + str(self.step) +  ", loss: " + str(loss) + ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
 
 
@@ -269,12 +274,11 @@ class Agent_PG(Agent):
         action: int
             the predicted action from trained model
     """
-    if self.step < self.args.observe_steps: # OBSERVE STAGE
-      if random.random() > 0.5:
-        return actions_in['up']
-      else:
-        return actions_in['down']
-
+    #if self.step < self.args.observe_steps: # OBSERVE STAGE
+    #  if random.random() > 0.5:
+    #    return actions_in['up']
+    #  else:
+    #    return actions_in['down']
     prob = self.sess.run(self.up_prob, feed_dict={self.s: observation.reshape((1, -1))})
 
     if prob[0] > 0.5: # TRAIN STAGE
