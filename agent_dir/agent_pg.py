@@ -137,6 +137,7 @@ class Agent_PG(Agent):
   def buildOptimizer(self):
 
     self.loss = tf.losses.log_loss(labels=self.act, predictions=self.up_prob, weights=self.advantage)
+    #self.train_op = tf.train.GradientDescentOptimizer(self.lr).minimize(self.loss)
     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
   def init_W(self, shape, name='weights'):
@@ -228,7 +229,7 @@ class Agent_PG(Agent):
       episode_reward = 0.0
 
       for s in range(self.args.max_num_steps):
-        self.env.env.render()
+        #self.env.env.render()
         state, action = self.make_action(obs, test=False)
         obs, reward, done, info = self.env.step(action)
         self.storeTransition(state, action, reward)
@@ -265,7 +266,12 @@ class Agent_PG(Agent):
       pbar.set_description("step: " + str(self.step) +  ", loss: " + "{:.6f}".format(loss) + ", reward, " +  str(episode_reward) + ", episode length: " + str(episode_len))
       
 
-
+  def random_act(self):
+    if np.random.uniform() > 0.5:
+      action = actions_in['up']
+    else:
+      action = actions_in['down']
+    return action
 
   def make_action(self, obs, test=True):
     """
@@ -280,16 +286,10 @@ class Agent_PG(Agent):
             the predicted action from trained model
     """
     #if self.step < self.args.observe_steps: # OBSERVE STAGE
-    #  if random.random() > 0.5:
-    #    return actions_in['up']
-    #  else:
-    #    return actions_in['down']
+    #  return self.random_act()
     obs = prepro(obs)
     if len(self.obs_list) == 0:
-      if np.random.uniform() > 0.5:
-        init_action = actions_in['up']
-      else:
-        init_action = actions_in['down']
+      init_action = self.random_act()
       obs_next, reward, done, info = self.env.step(init_action)
       obs_next = prepro(obs_next)
       state = obs_next - obs
@@ -302,15 +302,16 @@ class Agent_PG(Agent):
 
     prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
 
-    if test == True:
-      if prob[0] > np.random.uniform(): # similar to epsilon-greedy
-        return actions_in['up']
-      else:
-        return actions_in['down']
-    else: 
-      if prob[0] > np.random.uniform(): # similar to epsilon-greedy
-        return state, actions_in['up']
-      else:
-        return state, actions_in['down']      
-    # return self.env.get_random_action()     
 
+    if np.random.uniform() <= 0.05: # 0.05 is the epsilon-greedy
+      act = self.random_act() 
+    else:
+      if prob[0] > 0.5:
+        act = actions_in['up']
+      else:
+        act = actions_in['down']
+
+    if test == True:
+      return act
+    else:
+      return state, act
