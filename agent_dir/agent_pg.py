@@ -300,16 +300,14 @@ class Agent_PG(Agent):
       state = obs - self.obs_list[-1]
       self.obs_list.append(obs)
 
-    prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})
-
-
-    if np.random.uniform() <= 0.05: # 0.05 is the epsilon-greedy
-      act = self.random_act() 
-    else:
-      if prob[0] > 0.5:
-        act = actions_in['up']
-      else:
-        act = actions_in['down']
+    up_prob = self.sess.run(self.up_prob, feed_dict={self.s: state.reshape((1, -1))})[0][0]
+    down_prob = 1.0 - up_prob
+    sample_prob = [up_prob, down_prob]
+    choice = np.random.choice([1, 0], p = sample_prob)
+    if choice == 1:
+      act = actions_in['up']
+    else: # choice == 0
+      act = actions_in['down']
 
     if test == True:
       return act
