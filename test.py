@@ -28,13 +28,13 @@ def test(agent, env, total_episodes=30):
     rewards = []
     env.seed(seed)
     for i in range(total_episodes):
-        #state = env.reset()
+        state = env.reset()
         agent.init_game_setting()
         done = False
         episode_reward = 0.0
         #playing one game
         while(not done):
-            env.env.render()
+        #    env.env.render()
             action = agent.make_action(state, test=True)
             state, reward, done, info = env.step(action)
             episode_reward += reward
